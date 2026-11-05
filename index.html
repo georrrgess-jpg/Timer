@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>CubeTime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1021;
+    --bg2: #151a33;
+    --panel: rgba(255,255,255,0.055);
+    --panel-hi: rgba(255,255,255,0.09);
+    --border: rgba(255,255,255,0.10);
+    --text: #f4f6ff;
+    --muted: #9aa3c7;
+    --accent: #7c5cff;
+    --accent2: #00d4ff;
+    --good: #2ee59d;
+    --warn: #ffb020;
+    --bad: #ff4d6d;
+    --radius: 18px;
+    --ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'Consolas', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--ui);
+    color: var(--text);
+    background: var(--bg);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  /* Animated vibrant background */
+  .bg {
+    position: fixed; inset: 0; z-index: 0; overflow: hidden;
+    background: radial-gradient(1200px 800px at 80% -10%, #2a1d6b 0%, transparent 60%),
+                radial-gradient(900px 700px at -10% 110%, #0a3d62 0%, transparent 60%),
+                linear-gradient(160deg, var(--bg) 0%, var(--bg2) 100%);
+  }
+  .blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .45; animation: drift 22s ease-in-out infinite alternate; }
+  .blob.b1 { width: 420px; height: 420px; background: #7c5cff; top: -120px; left: 30%; }
+  .blob.b2 { width: 360px; height: 360px; background: #00d4ff; bottom: -140px; right: 10%; animation-duration: 28s; }
+  .blob.b3 { width: 300px; height: 300px; background: #ff3d9a; top: 40%; left: -100px; animation-duration: 34s; opacity: .3; }
+  @keyframes drift { to { transform: translate(80px, 60px) scale(1.15); } }
+
+  .app {
+    position: relative; z-index: 1; height: 100%;
+    display: grid; grid-template-columns: 320px 1fr; grid-template-rows: auto 1fr;
+    gap: 16px; padding: 16px;
+  }
+
+  /* ---------- Panels ---------- */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    box-shadow: 0 10px 40px rgba(0,0,0,.25);
+  }
+  .fadeable { transition: opacity .35s ease, transform .45s cubic-bezier(.2,.8,.2,1), filter .35s ease; }
+  body.solving .fadeable { opacity: 0; pointer-events: none; filter: blur(6px); }
+  body.solving .sidebar.fadeable { transform: translateX(-30px); }
+  body.solving .topbar.fadeable { transform: translateY(-30px); }
+  body.solving .preview.fadeable { transform: translateY(30px); }
+  body.solving .under.fadeable { transform: translateY(20px); }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar { grid-row: 1 / 3; display: flex; flex-direction: column; gap: 14px; min-height: 0; padding: 18px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 42px; height: 42px; display: grid; grid-template-columns: repeat(3,1fr); gap: 3px; padding: 4px; border-radius: 10px; background: #0b0d1a; animation: logoSpin 6s ease-in-out infinite; }
+  .logo span { border-radius: 2px; }
+  @keyframes logoSpin { 0%, 80% { transform: rotate(0); } 90%, 100% { transform: rotate(90deg); } }
+  .brand h1 { font-size: 22px; font-weight: 800; letter-spacing: -.5px; }
+  .brand h1 b { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  .session-row { display: flex; gap: 8px; align-items: center; }
+  select, .btn {
+    font-family: var(--ui); font-size: 14px; font-weight: 600; color: var(--text);
+    background: var(--panel-hi); border: 1px solid var(--border); border-radius: 12px;
+    padding: 9px 12px; cursor: pointer; outline: none;
+    transition: background .2s, transform .15s, border-color .2s, box-shadow .2s;
+  }
+  select { flex: 1; appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 18px) 55%, calc(100% - 13px) 55%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 30px; }
+  select option { background: #1a1f3d; }
+  .btn:hover, select:hover { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.2); }
+  .btn:active { transform: scale(.94); }
+  .btn.icon { width: 40px; height: 40px; padding: 0; display: grid; place-items: center; font-size: 18px; }
+  .btn.primary { background: linear-gradient(135deg, var(--accent), #5a8bff); border-color: transparent; box-shadow: 0 6px 20px rgba(124,92,255,.35); }
+  .btn.danger:hover { background: rgba(255,77,109,.2); border-color: var(--bad); }
+  .btn svg { width: 18px; height: 18px; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; position: relative; overflow: hidden; }
+  .stat .label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+  .stat .val { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 4px; letter-spacing: -.3px; }
+  .stat .sub { font-size: 12.5px; color: var(--muted); font-weight: 500; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .stat .sub b { color: var(--good); font-weight: 700; }
+  .stat::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--c, var(--accent)); }
+  .val.bump { animation: bump .5s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes bump { 0% { transform: translateY(8px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+
+  .list-head { display: flex; justify-content: space-between; align-items: center; }
+  .list-head h2 { font-size: 15px; font-weight: 700; }
+  .list-head .count { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .times { flex: 1; overflow-y: auto; min-height: 0; margin: 0 -6px; padding: 0 6px; }
+  .times::-webkit-scrollbar { width: 6px; }
+  .times::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 3px; }
+  .row {
+    display: grid; grid-template-columns: 40px 1fr 1fr 1fr; align-items: center;
+    padding: 10px 12px; border-radius: 12px; cursor: pointer; font-variant-numeric: tabular-nums;
+    font-size: 15px; font-weight: 600; transition: background .2s, transform .2s;
+  }
+  .row.head { cursor: default; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); padding-top: 4px; padding-bottom: 6px; }
+  .row:not(.head):hover { background: var(--panel-hi); transform: translateX(3px); }
+  .row .idx { color: var(--muted); font-size: 13px; }
+  .row .sm { color: var(--muted); font-weight: 500; font-size: 14px; }
+  .row.new { animation: slideIn .55s cubic-bezier(.2,.9,.3,1.2); }
+  .row .pb { color: var(--good); }
+  .row .dnf { color: var(--bad); }
+  .row .plus { color: var(--warn); }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-14px) scale(.96); background: rgba(124,92,255,.35); } to { opacity: 1; transform: none; } }
+  .empty { text-align: center; color: var(--muted); font-size: 14px; padding: 30px 10px; line-height: 1.6; }
+
+  /* ---------- Top bar / scramble ---------- */
+  .topbar { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .topbar .meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .chip { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; padding: 6px 12px; border-radius: 999px; background: rgba(124,92,255,.18); color: #c9bbff; border: 1px solid rgba(124,92,255,.35); }
+  .meta .spacer { flex: 1; }
+  .scramble { font-family: var(--mono); font-weight: 700; font-size: clamp(20px, 2.3vw, 32px); line-height: 1.5; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 14px; min-height: 48px; }
+  .scramble .mv { display: inline-block; animation: mvIn .45s cubic-bezier(.2,.9,.3,1.3) both; padding: 0 2px; border-radius: 6px; }
+  .scramble .mv:hover { background: rgba(255,255,255,.08); }
+  .scramble .mv.prime { color: #ffd166; }
+  .scramble .mv.dbl { color: #7ee8fa; }
+  @keyframes mvIn { from { opacity: 0; transform: translateY(12px) rotateX(70deg); } to { opacity: 1; transform: none; } }
+
+  /* ---------- Stage ---------- */
+  .stage { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; touch-action: none; cursor: pointer; border-radius: var(--radius); }
+  .timer {
+    font-family: var(--ui); font-weight: 800; font-variant-numeric: tabular-nums;
+    font-size: clamp(88px, 15vw, 230px); letter-spacing: -4px; line-height: 1;
+    transition: color .18s ease, transform .3s cubic-bezier(.2,1.4,.4,1), text-shadow .3s ease;
+    text-shadow: 0 8px 50px rgba(124,92,255,.35);
+  }
+  .timer .dec { font-size: .62em; opacity: .9; }
+  .timer.holding { color: var(--bad); transform: scale(.96); text-shadow: 0 0 60px rgba(255,77,109,.5); }
+  .timer.ready { color: var(--good); transform: scale(1.03); text-shadow: 0 0 80px rgba(46,229,157,.6); animation: readyPulse .9s ease-in-out infinite; }
+  .timer.running { color: #fff; text-shadow: 0 0 60px rgba(0,212,255,.35); }
+  .timer.inspect { color: var(--warn); text-shadow: 0 0 60px rgba(255,176,32,.45); }
+  .timer.inspect.late { color: var(--bad); }
+  .timer.done { animation: pop .5s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes readyPulse { 50% { text-shadow: 0 0 110px rgba(46,229,157,.9); } }
+  @keyframes pop { 0% { transform: scale(1.08); } 100% { transform: scale(1); } }
+
+  .ring { position: absolute; width: min(70vmin, 640px); aspect-ratio: 1; border-radius: 50%; border: 2px solid rgba(255,255,255,.05); pointer-events: none; transition: border-color .3s, transform .6s; }
+  body.solving .ring { border-color: rgba(0,212,255,.15); animation: ringSpin 3s linear infinite; border-top-color: rgba(0,212,255,.6); }
+  @keyframes ringSpin { to { transform: rotate(360deg); } }
+
+  .hint { margin-top: 18px; font-size: 15px; color: var(--muted); font-weight: 500; transition: opacity .3s; }
+  .hint kbd { font-family: var(--mono); font-size: 13px; background: var(--panel-hi); border: 1px solid var(--border); border-bottom-width: 3px; padding: 2px 8px; border-radius: 7px; color: var(--text); }
+  .under { display: flex; gap: 14px; margin-top: 26px; }
+  .pill { padding: 12px 22px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border); text-align: center; min-width: 130px; }
+  .pill .label { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; }
+  .pill .val { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .penalty-bar { display: flex; gap: 8px; margin-top: 18px; height: 40px; opacity: 0; transform: translateY(-6px); transition: opacity .3s, transform .3s; pointer-events: none; }
+  .penalty-bar.show { opacity: 1; transform: none; pointer-events: auto; }
+  .penalty-bar .btn.on { background: rgba(255,176,32,.25); border-color: var(--warn); color: #ffd58a; }
+  .penalty-bar .btn.on.dnfb { background: rgba(255,77,109,.25); border-color: var(--bad); color: #ffb3c1; }
+
+  /* ---------- Scramble preview ---------- */
+  .preview { position: absolute; right: 0; bottom: 0; padding: 14px; }
+  .preview .label { font-size: 11.5px; font-weight: 700; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 8px; }
+  .preview svg { display: block; width: 236px; height: auto; }
+  .preview rect { transform-box: fill-box; transform-origin: center; animation: stIn .4s cubic-bezier(.2,1.4,.4,1) both; }
+  @keyframes stIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  /* ---------- Toast & modal ---------- */
+  .toast { position: fixed; top: 24px; left: 50%; transform: translate(-50%, -120px); z-index: 50; padding: 14px 24px; border-radius: 16px; font-weight: 800; font-size: 17px; background: linear-gradient(135deg, #2ee59d, #00d4ff); color: #04131c; box-shadow: 0 12px 40px rgba(46,229,157,.4); transition: transform .5s cubic-bezier(.2,1.4,.4,1); }
+  .toast.show { transform: translate(-50%, 0); }
+  .overlay { position: fixed; inset: 0; z-index: 40; background: rgba(5,7,18,.6); backdrop-filter: blur(6px); display: grid; place-items: center; opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .modal { width: min(440px, 92vw); padding: 24px; background: #171b36; transform: scale(.9) translateY(20px); transition: transform .35s cubic-bezier(.2,1.4,.4,1); }
+  .overlay.show .modal { transform: none; }
+  .modal h3 { font-size: 14px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; }
+  .modal .big { font-size: 52px; font-weight: 800; font-variant-numeric: tabular-nums; margin: 6px 0 4px; letter-spacing: -1px; }
+  .modal .date { color: var(--muted); font-size: 14px; }
+  .modal .scr { font-family: var(--mono); font-size: 15px; line-height: 1.6; background: rgba(0,0,0,.25); padding: 12px 14px; border-radius: 12px; margin: 16px 0; user-select: text; -webkit-user-select: text; }
+  .modal .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .modal .actions .btn { flex: 1; }
+  .modal label.opt { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); font-size: 15px; font-weight: 600; cursor: pointer; }
+  .modal label.opt small { display: block; color: var(--muted); font-weight: 500; font-size: 13px; margin-top: 2px; }
+  .switch { position: relative; width: 48px; height: 28px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch span { position: absolute; inset: 0; background: rgba(255,255,255,.15); border-radius: 999px; transition: background .25s; }
+  .switch span::after { content: ''; position: absolute; width: 22px; height: 22px; left: 3px; top: 3px; border-radius: 50%; background: #fff; transition: transform .3s cubic-bezier(.2,1.4,.4,1); }
+  .switch input:checked + span { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+  .switch input:checked + span::after { transform: translateX(20px); }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 900px) {
+    body { overflow: auto; }
+    .app { grid-template-columns: 1fr; grid-template-rows: auto minmax(60vh, auto) auto; height: auto; min-height: 100%; padding: 12px; gap: 12px; }
+    .sidebar { grid-row: 3; max-height: 70vh; }
+    .preview { position: static; margin-top: 18px; }
+    .preview svg { width: 200px; }
+    .under .pill { min-width: 110px; padding: 10px 16px; }
+    body.solving .sidebar.fadeable { transform: translateY(30px); }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar panel fadeable">
+    <div class="brand">
+      <div class="logo" id="logo"></div>
+      <h1>Cube<b>Time</b></h1>
+      <div style="flex:1"></div>
+      <button class="btn icon" id="settingsBtn" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
+
+    <div class="session-row">
+      <select id="sessionSel" aria-label="Session"></select>
+      <button class="btn icon" id="addSession" title="New session" aria-label="New session">+</button>
+      <button class="btn icon danger" id="clearSession" title="Clear session" aria-label="Clear session">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+      </button>
+    </div>
+
+    <div class="stats">
+      <div class="stat" style="--c:#00d4ff"><div class="label">Single</div><div class="val" id="sSingle">–</div><div class="sub">best <b id="bSingle">–</b></div></div>
+      <div class="stat" style="--c:#7c5cff"><div class="label">Ao5</div><div class="val" id="sAo5">–</div><div class="sub">best <b id="bAo5">–</b></div></div>
+      <div class="stat" style="--c:#ff3d9a"><div class="label">Ao12</div><div class="val" id="sAo12">–</div><div class="sub">best <b id="bAo12">–</b></div></div>
+      <div class="stat" style="--c:#ffb020"><div class="label">Mean</div><div class="val" id="sMean">–</div><div class="sub"><span id="sCount">0</span> solves</div></div>
+    </div>
+
+    <div class="list-head"><h2>Solves</h2><span class="count" id="listCount"></span></div>
+    <div class="row head"><span>#</span><span>Time</span><span>Ao5</span><span>Ao12</span></div>
+    <div class="times" id="times"></div>
+  </aside>
+
+  <!-- Scramble -->
+  <header class="topbar panel fadeable">
+    <div class="meta">
+      <span class="chip">3×3×3</span>
+      <span class="chip" style="background:rgba(0,212,255,.15);color:#9eeeff;border-color:rgba(0,212,255,.35)">WCA Scramble</span>
+      <div class="spacer"></div>
+      <button class="btn icon" id="prevScr" title="Previous scramble" aria-label="Previous scramble">‹</button>
+      <button class="btn icon" id="nextScr" title="New scramble" aria-label="New scramble">›</button>
+      <button class="btn" id="copyScr" title="Copy scramble">Copy</button>
+    </div>
+    <div class="scramble" id="scramble"></div>
+  </header>
+
+  <!-- Timer stage -->
+  <main class="stage" id="stage">
+    <div class="ring"></div>
+    <div class="timer" id="timer">0<span class="dec">.00</span></div>
+    <div class="hint fadeable" id="hint">Hold <kbd>Space</kbd> or touch &amp; hold until green, then release</div>
+    <div class="penalty-bar fadeable" id="penaltyBar">
+      <button class="btn" id="pOk">OK</button>
+      <button class="btn" id="p2">+2</button>
+      <button class="btn dnfb" id="pDnf">DNF</button>
+      <button class="btn danger" id="pDel">Delete</button>
+    </div>
+    <div class="under fadeable">
+      <div class="pill"><div class="label">Ao5</div><div class="val" id="uAo5">–</div></div>
+      <div class="pill"><div class="label">Ao12</div><div class="val" id="uAo12">–</div></div>
+    </div>
+    <div class="preview panel fadeable" id="previewBox">
+      <div class="label">Scramble preview</div>
+      <svg id="preview" viewBox="0 0 262 197"></svg>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Solve details modal -->
+<div class="overlay" id="solveModal">
+  <div class="modal panel">
+    <h3 id="mTitle">Solve</h3>
+    <div class="big" id="mTime"></div>
+    <div class="date" id="mDate"></div>
+    <div class="scr" id="mScr"></div>
+    <div class="actions">
+      <button class="btn" id="mOk">OK</button>
+      <button class="btn" id="m2">+2</button>
+      <button class="btn dnfb" id="mDnf">DNF</button>
+      <button class="btn danger" id="mDel">Delete</button>
+      <button class="btn primary" id="mClose">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="overlay" id="settingsModal">
+  <div class="modal panel">
+    <h3>Settings</h3>
+    <label class="opt">
+      <div>WCA inspection (15s)<small>Auto +2 after 15s, DNF after 17s</small></div>
+      <span class="switch"><input type="checkbox" id="optInspect"><span></span></span>
+    </label>
+    <label class="opt">
+      <div>Hide timer while solving<small>Shows "solving" instead of running time</small></div>
+      <span class="switch"><input type="checkbox" id="optHide"><span></span></span>
+    </label>
+    <label class="opt">
+      <div>Show milliseconds<small>Display 3 decimal places</small></div>
+      <span class="switch"><input type="checkbox" id="optMs"><span></span></span>
+    </label>
+    <div class="actions" style="margin-top:18px">
+      <button class="btn primary" id="sClose">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+
+  /* ================= Cube model & scrambler ================= */
+  const COLORS = { U: '#ffffff', R: '#ff3b47', F: '#22d36b', D: '#ffd60a', L: '#ff8c1a', B: '#2f7bff' };
+  // Each face: outward normal, "right" and "down" vectors as seen from outside.
+  const FACES = {
+    U: { n: [0, 1, 0], r: [1, 0, 0], d: [0, 0, 1] },
+    D: { n: [0, -1, 0], r: [1, 0, 0], d: [0, 0, -1] },
+    F: { n: [0, 0, 1], r: [1, 0, 0], d: [0, -1, 0] },
+    B: { n: [0, 0, -1], r: [-1, 0, 0], d: [0, -1, 0] },
+    R: { n: [1, 0, 0], r: [0, 0, -1], d: [0, -1, 0] },
+    L: { n: [-1, 0, 0], r: [0, 0, 1], d: [0, -1, 0] },
+  };
+  const add = (a, b, k = 1) => a.map((v, i) => v + b[i] * k);
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const eq = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+
+  function solvedCube() {
+    const st = [];
+    for (const f in FACES) {
+      const { n, r, d } = FACES[f];
+      for (let row = 0; row < 3; row++)
+        for (let col = 0; col < 3; col++)
+          st.push({ pos: add(add(n, r, col - 1), d, row - 1), n: n.slice(), c: f });
+    }
+    return st;
+  }
+  // Clockwise quarter turn (as seen from the face) = -90° about the outward normal k.
+  const rotCW = (k, v) => { const c = cross(k, v), kd = dot(k, v); return [-c[0] + k[0] * kd, -c[1] + k[1] * kd, -c[2] + k[2] * kd]; };
+  function applyMove(cube, mv) {
+    const k = FACES[mv[0]].n;
+    const turns = mv[1] === "'" ? 3 : mv[1] === '2' ? 2 : 1;
+    for (const s of cube) {
+      if (dot(s.pos, k) !== 1) continue;
+      for (let t = 0; t < turns; t++) { s.pos = rotCW(k, s.pos); s.n = rotCW(k, s.n); }
+    }
+  }
+  function faceGrid(cube, f) {
+    const { n, r, d } = FACES[f];
+    const grid = [];
+    for (let row = 0; row < 3; row++)
+      for (let col = 0; col < 3; col++) {
+        const p = add(add(n, r, col - 1), d, row - 1);
+        grid.push(cube.find(s => eq(s.pos, p) && eq(s.n, n)).c);
+      }
+    return grid;
+  }
+
+  const AXIS = { U: 0, D: 0, R: 1, L: 1, F: 2, B: 2 };
+  function genScramble(len = 20) {
+    const faces = 'URFDLB', sfx = ['', "'", '2'], out = [];
+    while (out.length < len) {
+      const f = faces[Math.random() * 6 | 0];
+      const a = out[out.length - 1], b = out[out.length - 2];
+      if (a && a[0] === f) continue;
+      if (a && b && AXIS[a[0]] === AXIS[f] && AXIS[b[0]] === AXIS[f]) continue;
+      if (a && b && AXIS[a[0]] === AXIS[f] && b[0] === f) continue;
+      out.push(f + sfx[Math.random() * 3 | 0]);
+    }
+    return out;
+  }
+
+  /* ================= Storage ================= */
+  const KEY = 'cubetime.v1';
+  let data;
+  try { data = JSON.parse(localStorage.getItem(KEY)); } catch (e) { data = null; }
+  if (!data || !Array.isArray(data.sessions)) data = { sessions: [{ name: 'Session 1', times: [] }], cur: 0, settings: {} };
+  data.settings = Object.assign({ inspect: false, hide: false, ms: false }, data.settings);
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
+  const session = () => data.sessions[data.cur];
+
+  /* ================= Formatting & stats ================= */
+  const val = s => s.p === -1 ? Infinity : s.t + s.p;
+  function fmt(ms, digits) {
+    if (ms == null) return '–';
+    if (!isFinite(ms)) return 'DNF';
+    digits = digits ?? (data.settings.ms ? 3 : 2);
+    const unit = digits === 3 ? 1 : 10;
+    ms = Math.floor(ms / unit) * unit;
+    const m = Math.floor(ms / 60000), s = (ms % 60000) / 1000;
+    const sStr = s.toFixed(digits);
+    return m ? `${m}:${sStr.padStart(digits + 3, '0')}` : sStr;
+  }
+  const fmtSolve = s => s.p === -1 ? `DNF(${fmt(s.t)})` : s.p ? fmt(s.t + s.p) + '+' : fmt(s.t);
+
+  function avgOf(list, end, n) { // average of n ending at index end (inclusive)
+    if (end + 1 < n) return null;
+    const v = list.slice(end - n + 1, end + 1).map(val).sort((a, b) => a - b);
+    const trim = Math.ceil(n * 0.05);
+    const mid = v.slice(trim, n - trim);
+    if (mid.some(x => !isFinite(x))) return Infinity;
+    return mid.reduce((a, b) => a + b, 0) / mid.length;
+  }
+  function computeStats(list) {
+    const ao5 = list.map((_, i) => avgOf(list, i, 5));
+    const ao12 = list.map((_, i) => avgOf(list, i, 12));
+    const best = arr => arr.reduce((b, x) => (x != null && (b == null || x < b) ? x : b), null);
+    const finite = list.map(val).filter(isFinite);
+    return {
+      ao5, ao12,
+      bestSingle: best(list.map(val)),
+      bestAo5: best(ao5), bestAo12: best(ao12),
+      mean: finite.length ? finite.reduce((a, b) => a + b, 0) / finite.length : null,
+    };
+  }
+
+  /* ================= Rendering ================= */
+  let scramble = [], prevScramble = null;
+  function renderScramble(animate = true) {
+    const el = $('scramble');
+    el.innerHTML = '';
+    scramble.forEach((m, i) => {
+      const s = document.createElement('span');
+      s.className = 'mv' + (m.includes("'") ? ' prime' : m.includes('2') ? ' dbl' : '');
+      s.textContent = m;
+      s.style.animationDelay = animate ? i * 22 + 'ms' : '0ms';
+      el.appendChild(s);
+    });
+    renderPreview();
+  }
+  function renderPreview() {
+    const cube = solvedCube();
+    scramble.forEach(m => applyMove(cube, m));
+    const S = 19, G = 2, FS = S * 3 + G * 2 + 4; // sticker, gap, face size
+    const pos = { U: [1, 0], L: [0, 1], F: [1, 1], R: [2, 1], B: [3, 1], D: [1, 2] };
+    let html = '', k = 0;
+    for (const f of ['U', 'L', 'F', 'R', 'B', 'D']) {
+      const [fx, fy] = pos[f], grid = faceGrid(cube, f);
+      grid.forEach((c, i) => {
+        const x = fx * FS + (i % 3) * (S + G) + 1, y = fy * FS + Math.floor(i / 3) * (S + G) + 1;
+        html += `<rect x="${x}" y="${y}" width="${S}" height="${S}" rx="4" fill="${COLORS[c]}" style="animation-delay:${k++ * 6}ms"/>`;
+      });
+    }
+    $('preview').innerHTML = html;
+  }
+  function newScramble() { prevScramble = scramble.length ? scramble : null; scramble = genScramble(); renderScramble(); }
+
+  function bumpText(el, text) {
+    if (el.textContent === text) return;
+    el.textContent = text;
+    el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  }
+
+  let stats;
+  function renderAll(newRow = false) {
+    const list = session().times;
+    stats = computeStats(list);
+    const n = list.length, last = n - 1;
+    bumpText($('sSingle'), n ? fmt(val(list[last])) : '–');
+    bumpText($('bSingle'), fmt(stats.bestSingle));
+    bumpText($('sAo5'), n ? fmt(stats.ao5[last]) : '–');
+    bumpText($('bAo5'), fmt(stats.bestAo5));
+    bumpText($('sAo12'), n ? fmt(stats.ao12[last]) : '–');
+    bumpText($('bAo12'), fmt(stats.bestAo12));
+    bumpText($('sMean'), fmt(stats.mean));
+    $('sCount').textContent = n;
+    bumpText($('uAo5'), n ? fmt(stats.ao5[last]) : '–');
+    bumpText($('uAo12'), n ? fmt(stats.ao12[last]) : '–');
+    $('listCount').textContent = n ? `${list.filter(s => s.p !== -1).length}/${n} completed` : '';
+
+    const box = $('times');
+    if (!n) { box.innerHTML = '<div class="empty">No solves yet.<br>Scramble your cube and start the timer!</div>'; return; }
+    const frag = document.createDocumentFragment();
+    for (let i = last; i >= 0; i--) {
+      const s = list[i], r = document.createElement('div');
+      r.className = 'row' + (newRow && i === last ? ' new' : '');
+      const cls = s.p === -1 ? 'dnf' : val(s) === stats.bestSingle ? 'pb' : s.p ? 'plus' : '';
+      r.innerHTML = `<span class="idx">${i + 1}</span><span class="${cls}">${fmtSolve(s)}</span><span class="sm">${fmt(stats.ao5[i])}</span><span class="sm">${fmt(stats.ao12[i])}</span>`;
+      r.onclick = () => openSolve(i);
+      frag.appendChild(r);
+    }
+    box.innerHTML = ''; box.appendChild(frag);
+    box.scrollTop = 0;
+  }
+
+  function renderSessions() {
+    $('sessionSel').innerHTML = data.sessions.map((s, i) => `<option value="${i}" ${i === data.cur ? 'selected' : ''}>${s.name.replace(/</g, '&lt;')} (${s.times.length})</option>`).join('');
+  }
+
+  let toastT;
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2400);
+  }
+
+  /* ================= Timer state machine ================= */
+  const timerEl = $('timer');
+  const HOLD_MS = 300;
+  let state = 'idle'; // idle | preinspect | inspecting | holding | ready | running | stopped
+  let holdTimer = null, startTime = 0, inspStart = 0, inspPenalty = 0, raf = 0, wasInspecting = false;
+
+  function setDisplay(ms) {
+    const s = fmt(ms), i = s.indexOf('.');
+    timerEl.innerHTML = i < 0 ? s : `${s.slice(0, i)}<span class="dec">${s.slice(i)}</span>`;
+  }
+  function setClass(c) { timerEl.className = 'timer ' + (c || ''); }
+
+  function loop() {
+    if (state === 'running') {
+      if (data.settings.hide) timerEl.textContent = 'solving';
+      else setDisplay(performance.now() - startTime);
+    }
+    if (wasInspecting && state !== 'running') {
+      const el = (performance.now() - inspStart) / 1000;
+      if (state === 'inspecting') {
+        const left = Math.ceil(15 - el);
+        timerEl.textContent = left > 0 ? left : el < 17 ? '+2' : 'DNF';
+        setClass('inspect' + (left <= 3 ? ' late' : ''));
+      }
+    }
+    raf = requestAnimationFrame(loop);
+  }
+
+  function beginHold() {
+    state = 'holding';
+    setClass('holding');
+    holdTimer = setTimeout(() => { if (state === 'holding') { state = 'ready'; setClass('ready'); if (!wasInspecting) setDisplay(0); } }, HOLD_MS);
+  }
+  function startInspection() {
+    state = 'inspecting'; wasInspecting = true; inspStart = performance.now();
+    document.body.classList.add('solving');
+  }
+  function startSolve() {
+    if (wasInspecting) {
+      const el = (performance.now() - inspStart) / 1000;
+      inspPenalty = el > 17 ? -1 : el > 15 ? 2000 : 0;
+    } else inspPenalty = 0;
+    wasInspecting = false;
+    state = 'running'; startTime = performance.now();
+    setClass('running');
+    document.body.classList.add('solving');
+    $('penaltyBar').classList.remove('show');
+  }
+  function stopSolve() {
+    const t = Math.round(performance.now() - startTime);
+    state = 'stopped';
+    document.body.classList.remove('solving');
+    setClass('done');
+    setDisplay(inspPenalty === -1 ? Infinity : t + inspPenalty);
+    const prevBest = stats.bestSingle;
+    session().times.push({ t, p: inspPenalty, s: scramble.join(' '), d: Date.now() });
+    save(); renderAll(true); renderSessions();
+    const solve = session().times[session().times.length - 1];
+    if (session().times.length > 1 && isFinite(val(solve)) && (prevBest == null || val(solve) < prevBest)) toast('🎉 New personal best single!');
+    else if (stats.ao5.length > 5 && stats.ao5[stats.ao5.length - 1] === stats.bestAo5 && isFinite(stats.bestAo5)) toast('🔥 New best Ao5!');
+    $('penaltyBar').classList.add('show');
+    updatePenaltyBar();
+    newScramble();
+  }
+  function cancel() {
+    clearTimeout(holdTimer);
+    if (state === 'running') return;
+    state = 'idle'; wasInspecting = false;
+    document.body.classList.remove('solving');
+    setClass(''); const l = session().times.at(-1); setDisplay(l ? val(l) : 0);
+  }
+
+  function press() {
+    if (anyModalOpen()) return;
+    switch (state) {
+      case 'running': stopSolve(); break;
+      case 'idle': data.settings.inspect ? (state = 'preinspect') : beginHold(); break;
+      case 'inspecting': beginHold(); break;
+    }
+  }
+  function release() {
+    switch (state) {
+      case 'holding':
+        clearTimeout(holdTimer);
+        if (wasInspecting) { state = 'inspecting'; } else { state = 'idle'; setClass(''); }
+        break;
+      case 'ready': startSolve(); break;
+      case 'preinspect': startInspection(); break;
+      case 'stopped': state = 'idle'; break;
+    }
+  }
+
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+    if (e.key === 'Escape') { closeModals(); cancel(); return; }
+    if (state === 'running' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); press(); return; }
+    if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) press(); }
+  });
+  document.addEventListener('keyup', e => {
+    if (e.code === 'Space') { e.preventDefault(); release(); }
+    else if (state === 'stopped') state = 'idle';
+  });
+  // Touch / mouse on the stage
+  const stage = $('stage');
+  stage.addEventListener('pointerdown', e => {
+    if (e.target.closest('button, .preview, .penalty-bar')) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault(); press();
+  });
+  window.addEventListener('pointerup', release);
+  window.addEventListener('pointercancel', release);
+  // Any touch anywhere stops a running solve (big target on mobile)
+  document.addEventListener('pointerdown', e => { if (state === 'running' && !stage.contains(e.target)) press(); }, true);
+
+  /* ================= Penalty bar (last solve) ================= */
+  function setPenalty(i, p) {
+    const s = session().times[i]; if (!s) return;
+    s.p = s.p === p ? 0 : p; save(); renderAll(); renderSessions();
+  }
+  function updatePenaltyBar() {
+    const s = session().times.at(-1);
+    if (!s) { $('penaltyBar').classList.remove('show'); return; }
+    $('p2').classList.toggle('on', s.p === 2000);
+    $('pDnf').classList.toggle('on', s.p === -1);
+    if (state !== 'running') { setClass(''); setDisplay(val(s)); if (s.p === 2000) timerEl.insertAdjacentHTML('beforeend', '<span class="dec">+</span>'); }
+  }
+  const lastIdx = () => session().times.length - 1;
+  $('pOk').onclick = e => { e.currentTarget.blur(); const s = session().times.at(-1); if (s) { s.p = 0; save(); renderAll(); } updatePenaltyBar(); };
+  $('p2').onclick = e => { e.currentTarget.blur(); setPenalty(lastIdx(), 2000); updatePenaltyBar(); };
+  $('pDnf').onclick = e => { e.currentTarget.blur(); setPenalty(lastIdx(), -1); updatePenaltyBar(); };
+  $('pDel').onclick = e => { e.currentTarget.blur(); deleteSolve(lastIdx()); };
+
+  function deleteSolve(i) {
+    if (i < 0) return;
+    session().times.splice(i, 1); save(); renderAll(); renderSessions();
+    $('penaltyBar').classList.remove('show');
+    setClass(''); const l = session().times.at(-1); setDisplay(l ? val(l) : 0);
+  }
+
+  /* ================= Modals ================= */
+  let modalIdx = -1;
+  const anyModalOpen = () => document.querySelector('.overlay.show') !== null;
+  function closeModals() { document.querySelectorAll('.overlay').forEach(o => o.classList.remove('show')); }
+  document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) closeModals(); }));
+
+  function openSolve(i) {
+    if (state === 'running') return;
+    modalIdx = i; fillSolve(); $('solveModal').classList.add('show');
+  }
+  function fillSolve() {
+    const s = session().times[modalIdx]; if (!s) return closeModals();
+    $('mTitle').textContent = `Solve #${modalIdx + 1}`;
+    $('mTime').textContent = fmtSolve(s);
+    $('mTime').style.color = s.p === -1 ? 'var(--bad)' : s.p ? 'var(--warn)' : '';
+    $('mDate').textContent = new Date(s.d).toLocaleString();
+    $('mScr').textContent = s.s;
+    $('m2').classList.toggle('on', s.p === 2000);
+    $('mDnf').classList.toggle('on', s.p === -1);
+  }
+  $('mOk').onclick = () => { const s = session().times[modalIdx]; s.p = 0; save(); renderAll(); fillSolve(); if (modalIdx === lastIdx()) updatePenaltyBar(); };
+  $('m2').onclick = () => { setPenalty(modalIdx, 2000); fillSolve(); if (modalIdx === lastIdx()) updatePenaltyBar(); };
+  $('mDnf').onclick = () => { setPenalty(modalIdx, -1); fillSolve(); if (modalIdx === lastIdx()) updatePenaltyBar(); };
+  $('mDel').onclick = () => { deleteSolve(modalIdx); closeModals(); };
+  $('mClose').onclick = closeModals;
+
+  $('settingsBtn').onclick = e => { e.currentTarget.blur(); $('settingsModal').classList.add('show'); };
+  $('sClose').onclick = closeModals;
+  for (const [id, key] of [['optInspect', 'inspect'], ['optHide', 'hide'], ['optMs', 'ms']]) {
+    $(id).checked = data.settings[key];
+    $(id).onchange = e => { data.settings[key] = e.target.checked; save(); renderAll(); if (state === 'idle' || state === 'stopped') updatePenaltyBar(); };
+  }
+
+  /* ================= Sessions & scramble controls ================= */
+  $('sessionSel').onchange = e => { data.cur = +e.target.value; save(); renderAll(); e.target.blur(); $('penaltyBar').classList.remove('show'); const l = session().times.at(-1); setDisplay(l ? val(l) : 0); };
+  $('addSession').onclick = e => {
+    e.currentTarget.blur();
+    const name = prompt('Session name:', `Session ${data.sessions.length + 1}`);
+    if (!name) return;
+    data.sessions.push({ name: name.slice(0, 40), times: [] }); data.cur = data.sessions.length - 1;
+    save(); renderSessions(); renderAll(); setDisplay(0); $('penaltyBar').classList.remove('show');
+  };
+  $('clearSession').onclick = e => {
+    e.currentTarget.blur();
+    if (!session().times.length || !confirm(`Delete all ${session().times.length} solves in "${session().name}"?`)) return;
+    session().times = []; save(); renderSessions(); renderAll(); setDisplay(0); $('penaltyBar').classList.remove('show');
+  };
+  $('nextScr').onclick = e => { e.currentTarget.blur(); newScramble(); };
+  $('prevScr').onclick = e => { e.currentTarget.blur(); if (prevScramble) { [scramble, prevScramble] = [prevScramble, scramble]; renderScramble(); } };
+  $('copyScr').onclick = e => {
+    const b = e.currentTarget; b.blur();
+    navigator.clipboard?.writeText(scramble.join(' ')).then(() => { b.textContent = 'Copied ✓'; setTimeout(() => b.textContent = 'Copy', 1200); }).catch(() => {});
+  };
+
+  /* ================= Init ================= */
+  $('logo').innerHTML = ['#ff3b47', '#22d36b', '#2f7bff', '#ffd60a', '#ffffff', '#ff8c1a', '#2f7bff', '#ff3b47', '#22d36b'].map(c => `<span style="background:${c}"></span>`).join('');
+  renderSessions(); renderAll();
+  const last = session().times.at(-1); setDisplay(last ? val(last) : 0);
+  newScramble();
+  loop();
+})();
+</script>
+</body>
+</html>
